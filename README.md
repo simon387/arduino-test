@@ -27,3 +27,11 @@
 + ```for```: like c++
 + ```variables```: like c++
 + ```if```: like c++
+
+## build in led
+
+```c++
+int led = LED_BUILTIN;
+pinMode(led, OUTPUT);
+digitalWrite(led, HIGH);
+```
