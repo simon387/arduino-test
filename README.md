@@ -9,3 +9,5 @@
 + ```digitalRead(2)```: read value
 + ```digitalWrite(3, digitalRead(2))```: ex of turn on/off with a btn
 + ```int button```: var declaration
++ ```Serial.begin(9600)```: 9600 symbol / seconds, initialization
++ ```Serial.println("Hello Arduino!")```: write to serial
