@@ -9,131 +9,106 @@
 #include "ArduinoGraphics.h"
 #include "Arduino_LED_Matrix.h"
 
-char ssid[] = SECRET_SSID;  // your network SSID (name)
-char pass[] = SECRET_PASS;  // your network password (use for WPA, or use as key for WEP)
-int keyIndex = 0;           // your network key index number (needed only for WEP)
-
+const char ssid[] = SECRET_SSID;
+const char pass[] = SECRET_PASS;
+const char server[] = "www.simonecelia.it";
+const bool PRINT_TO_SERIAL = false;  // false = better performance ?
 int status = WL_IDLE_STATUS;
-char server[] = "www.simonecelia.it";  // (using DNS)
 
-// Initialize the Ethernet client library
-// with the IP address and port of the server
-// that you want to connect to (port 80 is default for HTTP):
 WiFiClient client;
 ArduinoLEDMatrix matrix;
-String response = "";  // Variable to store the response
 String text = "";
 
 void setup() {
   setupMatrix();
 
-
-  //Initialize serial and wait for port to open:
   Serial.begin(9600);
   while (!Serial) {
     ;  // wait for serial port to connect. Needed for native USB port only
   }
 
-  // check for the WiFi module:
   if (WiFi.status() == WL_NO_MODULE) {
-    Serial.println("Communication with WiFi module failed!");
-    // don't continue
+    if (PRINT_TO_SERIAL) Serial.println("Communication with WiFi module failed!");
     while (true)
       ;
   }
 
   String fv = WiFi.firmwareVersion();
   if (fv < WIFI_FIRMWARE_LATEST_VERSION) {
-    Serial.println("Please upgrade the firmware");
+    if (PRINT_TO_SERIAL) Serial.println("Please upgrade the firmware");
   }
 
-  // attempt to connect to WiFi network:
   while (status != WL_CONNECTED) {
-    Serial.print("Attempting to connect to SSID: ");
-    Serial.println(ssid);
-    // Connect to WPA/WPA2 network. Change this line if using open or WEP network:
+    if (PRINT_TO_SERIAL) Serial.print("Attempting to connect to SSID: ");
+    if (PRINT_TO_SERIAL) Serial.println(ssid);
     status = WiFi.begin(ssid, pass);
-
-    // wait 10 seconds for connection:
     delay(10000);
   }
 
   printWifiStatus();
 
+  clientGetData();
+}
+
+void clientGetData() {
   String rsp = getResponse();
   text = getText(rsp);
-  Serial.println("disconnecting from server.");
   client.stop();
-
-  response = "";
 }
 
 void setupMatrix() {
   matrix.begin();
-
   matrix.beginDraw();
   matrix.stroke(0xFFFFFFFF);
-  // add some static text
-  // will only show "UNO" (not enough space on the display)
-  const char text[] = "UNO r4";
+  const char text[] = "UNO r4";  // will only show "UNO" (not enough space on the display)
   matrix.textFont(Font_4x6);
   matrix.beginText(0, 1, 0xFFFFFF);
   matrix.println(text);
   matrix.endText();
-
   matrix.endDraw();
 }
 
 
-/* just wrap the received data up to 80 columns in the serial print*/
-void read_response() {
+String read_response() {
   uint32_t received_data_num = 0;
+  String response = "";
   while (client.available()) {
-    /* actual data reception */
     char c = client.read();
     response += c;
-    /* print data to serial port */
-    // Serial.print(c);
-    /* wrap data to 80 columns*/
     received_data_num++;
-    // if (received_data_num % 512 == 0) {
-    //Serial.println();
-    // }
   }
+  return response;
 }
 
 
 void loop() {
   scrollText(text);
+  clientGetData();
 }
 
 String getResponse() {
-  connectToServer();
+  connectToServerAndMakeRequest();
+  String response = "";
   while (client.connected()) {
-    read_response();
+    response = read_response();
   }
-  Serial.println("response:");
-  Serial.println(response);
-  Serial.println();
+  if (PRINT_TO_SERIAL) Serial.println("response:");
+  if (PRINT_TO_SERIAL) Serial.println(response);
+  if (PRINT_TO_SERIAL) Serial.println();
   return response;
 }
 
 String getText(String response) {
-  // Find the start of JSON content
   int jsonStartIndex = response.indexOf('{');
-  // Extract JSON content
   String jsonContent = response.substring(jsonStartIndex);
-  // Extract the "text" value from JSON content
   String text = extractTextValue(jsonContent);
   return text;
 }
 
 void scrollText(String text) {
-  // Make it scroll!
   matrix.beginDraw();
   matrix.stroke(0xFFFFFFFF);
   matrix.textScrollSpeed(75);
-  // add the text
   matrix.textFont(Font_5x7);
   matrix.beginText(0, 1, 0xFFFFFF);
   matrix.println(text);
@@ -143,43 +118,34 @@ void scrollText(String text) {
 
 
 void printWifiStatus() {
-  // print the SSID of the network you're attached to:
-  Serial.print("SSID: ");
-  Serial.println(WiFi.SSID());
-
-  // print your board's IP address:
+  if (PRINT_TO_SERIAL) Serial.print("SSID: ");
+  if (PRINT_TO_SERIAL) Serial.println(WiFi.SSID());
   IPAddress ip = WiFi.localIP();
-  Serial.print("IP Address: ");
-  Serial.println(ip);
-
-  // print the received signal strength:
+  if (PRINT_TO_SERIAL) Serial.print("IP Address: ");
+  if (PRINT_TO_SERIAL) Serial.println(ip);
   long rssi = WiFi.RSSI();
-  Serial.print("signal strength (RSSI):");
-  Serial.print(rssi);
-  Serial.println(" dBm");
+  if (PRINT_TO_SERIAL) Serial.print("signal strength (RSSI):");
+  if (PRINT_TO_SERIAL) Serial.print(rssi);
+  if (PRINT_TO_SERIAL) Serial.println(" dBm");
 }
 
 
 String extractTextValue(String jsonString) {
-  // Parse the JSON
   DynamicJsonDocument jsonDocument(512);  // Adjust the size according to your JSON
   DeserializationError error = deserializeJson(jsonDocument, jsonString);
-  // Check for parsing errors
   if (error) {
-    Serial.print("deserializeJson() failed: ");
-    Serial.println(error.c_str());
+    if (PRINT_TO_SERIAL) Serial.print("deserializeJson() failed: ");
+    if (PRINT_TO_SERIAL) Serial.println(error.c_str());
     return "";
   }
   String textValue = jsonDocument["text"].as<String>();
   return textValue;
 }
 
-void connectToServer() {
-  Serial.println("\nStarting connection to server...");
-  // if you get a connection, report back via serial:
+void connectToServerAndMakeRequest() {
+  if (PRINT_TO_SERIAL) Serial.println("\nStarting connection to server...");
   if (client.connect(server, 80)) {
-    Serial.println("connected to server");
-    // Make a HTTP request:
+    if (PRINT_TO_SERIAL) Serial.print("connected to server\n");
     client.println("GET /text-api/v1/text.php HTTP/1.1");
     client.println("Host: www.simonecelia.it");
     client.println("Connection: close");
